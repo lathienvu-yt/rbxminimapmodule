@@ -7,6 +7,17 @@ A high-performance modular minimap system for Roblox, built for both casual game
 
 ## How it works
 Uses `ViewportFrame` with camera tracking, smart model cloning, and per-frame updates.
+## Installation
+1. Copy `minimap.client.lua` into a LocalScript inside a ScreenGui.
+2. Make sure to set up:
+   - `ViewerFolder` in Workspace
+   - `ViewerFolder2` in ReplicatedStorage
+   - `TrackRagdoll` RemoteEvent
+3. Customize `mapCenter` and other settings in the script.
+
+## Demo Place
+Use `MiniMapDemo.rbxl` to see everything in action.
+
 ## License
 MIT
 
