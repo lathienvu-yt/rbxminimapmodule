@@ -17,3 +17,5 @@ MIT
 > "Yesn't for fixing full map."
 ## Made for my channel hangout game.
 ## also sub to my channel [**lathienvu_XD**](https://www.youtube.com/@lathienvu_yt)
+## Credits:
+ Ragdoll system based on a modified free model from Roblox Toolbox.
