@@ -6,13 +6,18 @@
 	targetUPS: the maximum updates per second you can do.
 	mapCenter: set this to the center position of your full map.
 
-	Current version: 3.5
+	Version: 3.6 (Beta)
 
-	What's new:
-	- Fixed ragdoll tracking system
-	- Yesn't for fixing full map
-	- Added more code that works but shouldn't
-	- Bug fix, that's all
+	 Changes:
+	- Removed the cursed "updateInterval = 1 / (targetUPS / 2)" line
+	- Fixed UPS cap sticking at 45 even with autoscaling off
+	- targetUPS now respects your setting (finally 💀)
+	- Duplicated flag definitions cleaned up
+	- Improved debug consistency
+	- Fixed MAX_UPS override issue
+
+	 Not Yet:
+	- UPS Stabilizer: NEVER until v4.0 💀
 ]]
 
 local RunService = game:GetService("RunService")
@@ -41,16 +46,19 @@ local UPSLabel = script.Parent.MiniMapV3:WaitForChild("UPSLabel")
 -- Flags
 local isV3 = true --set false to use V2
 local lastUpdate = 0
-local targetUPS = 200
-local updateInterval = 1 / targetUPS
+local targetUPS = 90
+local updateInterval = 1 / (targetUPS*2)
 local upsCount = 0
-local upsTimer = 0
+local upsTimer = 0	
 local smoothedFPS = 60
 local timeSinceLastFPSUpdate = 0
 local timeSinceLastUPSUpdate = 0
 local mapScale = 1.5
 local FullmapScale = 0.3
 local mapCenter = Vector3.new(-143.81, 0, -186.231)
+local MAX_UPS = targetUPS
+local MIN_UPS = 20
+local UPS_SCALING_ENABLED = true -- set to true if you want to auto-scale
 -------------------------------------------------------------|
 local v2 = script.Parent:WaitForChild("MiniMapV2")
 local v3 = script.Parent:WaitForChild("MiniMapV3")
@@ -58,7 +66,7 @@ local function updateUI()
 	v2.Visible = not useV3
 	v3.Visible = useV3
 end
-
+useV3 = isV3 -- default to V3
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if gameProcessed then return end
 	if input.KeyCode == Enum.KeyCode.Z then
@@ -95,14 +103,7 @@ FullArrow.Name = "FullArrow"
 FullArrow.Parent = FullFrame
 FullArrow.Size = UDim2.new(0, 8, 0, 12)
 FullArrow.Visible = false
-local scale = Frame:FindFirstChildOfClass("UIScale")
-if scale then
-	scale.Scale = mapOpen and 1 or 0.75
-end
-local scale = FullFrame:FindFirstChildOfClass("UIScale")
-if scale then
-	scale.Scale = mapOpen and 1 or 0.75
-end
+
 
 
 -- Folder references
@@ -302,13 +303,15 @@ RunService.Heartbeat:Connect(function(dt)
 		-- your update code here
 		-- in the for loop over trackedMini
 		for original, clone in pairs(trackedMini) do
+
+
 			if original:IsA("Model") and original.PrimaryPart and clone:IsA("Model") and clone.PrimaryPart then
 				local origCFrame = original:GetPrimaryPartCFrame()
 				if not isFarFromPlayer(origCFrame.Position) and not origCFrame:FuzzyEq(clone:GetPrimaryPartCFrame(), 0.01) then
 					clone:SetPrimaryPartCFrame(origCFrame)
 				end
 
-				-- ? Only sync ragdoll parts by tag or name
+				-- ✅ Only sync ragdoll parts by tag or name
 				if original.Name:lower():find("ragdoll") or CollectionService:HasTag(original, "Ragdoll") then
 					for _, origPart in ipairs(original:GetDescendants()) do
 						if origPart:IsA("BasePart") then
@@ -331,32 +334,43 @@ RunService.Heartbeat:Connect(function(dt)
 
 	-- Realtime UPS display (even if update didn't run)
 	local avgUPS = upsCount / math.max(upsTimer, 0.01)
+	
+
 	UPSLabel.Text = string.format("UPS: %.1f / %.0f", avgUPS,targetUPS)
 	UPSLabel.TextColor3 = (avgUPS >= targetUPS * 0.9) and Color3.fromRGB(0, 255, 0)
 		or (avgUPS >= targetUPS * 0.6) and Color3.fromRGB(255, 165, 0)
 		or Color3.fromRGB(255, 0, 0)
-	-- FPS display (updates once per second)
+	-- Smooth FPS using exponential moving average
 	local safeDt = math.max(dt, 0.0001)
 	smoothedFPS = smoothedFPS * 0.9 + (1 / safeDt) * 0.1
-
-	-- Adjust UPS target based on FPS
-	local rawFPS = 1/safeDt
-	targetUPS = math.clamp(smoothedFPS*2, 20, targetUPS)
-	updateInterval = 1 / targetUPS
-
-	-- Realtime FPS display
-	FPSLabel.Text = string.format("FPS: %.1f", smoothedFPS)
-	if smoothedFPS >= 50 then
-		FPSLabel.TextColor3 = Color3.fromRGB(0, 255, 0) -- Green
-	elseif smoothedFPS >= 30 then
-		FPSLabel.TextColor3 = Color3.fromRGB(255, 165, 0) -- Orange
-	else
-		FPSLabel.TextColor3 = Color3.fromRGB(255, 0, 0) -- Red
+	-- Don't let UPS follow FPS unless explicitly enabled
+	if UPS_SCALING_ENABLED then
+		local autoUPS = math.clamp(smoothedFPS * 1.1, MIN_UPS, MAX_UPS)
+		targetUPS = autoUPS
 	end
 
 
-	-- Reset after 1 second
 
+
+	-- Display UPS/FPS once per second
+	upsTimer += dt
+	if upsTimer >= 1 then
+		UPSLabel.Text = string.format("UPS: %.1f / %.0f", upsCount, targetUPS)
+		FPSLabel.Text = string.format("FPS: %.1f", smoothedFPS)
+
+		-- Color feedback
+		FPSLabel.TextColor3 = (smoothedFPS >= 50) and Color3.fromRGB(0, 255, 0)
+			or (smoothedFPS >= 30) and Color3.fromRGB(255, 165, 0)
+			or Color3.fromRGB(255, 0, 0)
+
+		UPSLabel.TextColor3 = (upsCount >= targetUPS * 0.9) and Color3.fromRGB(0, 255, 0)
+			or (upsCount >= targetUPS * 0.6) and Color3.fromRGB(255, 165, 0)
+			or Color3.fromRGB(255, 0, 0)
+
+		-- Reset counters
+		upsCount = 0
+		upsTimer = 0
+	end
 end)
 
 

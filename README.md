@@ -26,7 +26,8 @@ MIT
 
 ## Notes
 > "Yesn't for fixing full map."
-## Made for my channel hangout game.
+## Made for my channel hangout game. (the game is in my alt profile @lathienvu7verifyacc)
 ## also sub to my channel [**lathienvu_XD**](https://www.youtube.com/@lathienvu_yt)
+
 ## Credits:
  Ragdoll system based on a modified free model from Roblox Toolbox.
